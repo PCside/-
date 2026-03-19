@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iOSアプリ開発ガイド</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #007AFF;
+      --success: #34C759;
+      --warning: #FF9500;
+      --danger: #FF3B30;
+      --dark: #1C1C1E;
+      --light-bg: #F2F2F7;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif; background: #fff; color: #1C1C1E; }
+    .hero { background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%); color: white; padding: 60px 0; }
+    .hero h1 { font-size: 2.5rem; font-weight: 700; }
+    .hero p { font-size: 1.2rem; opacity: 0.9; }
+    .section { padding: 60px 0; }
+    .section-alt { background: var(--light-bg); }
+    h2 { font-size: 1.8rem; font-weight: 700; border-left: 5px solid var(--primary); padding-left: 16px; margin-bottom: 32px; }
+    h3 { font-size: 1.3rem; font-weight: 600; color: var(--primary); margin-top: 28px; margin-bottom: 16px; }
+    .step-card { background: white; border-radius: 16px; padding: 24px; margin-bottom: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border-left: 4px solid var(--primary); }
+    .step-number { background: var(--primary); color: white; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; margin-right: 12px; flex-shrink: 0; }
+    .error-card { background: #FFF5F5; border-radius: 16px; padding: 24px; margin-bottom: 16px; border-left: 4px solid var(--danger); }
+    .error-card h4 { color: var(--danger); font-weight: 700; margin-bottom: 8px; }
+    .solution-box { background: #F0FFF4; border-radius: 8px; padding: 16px; margin-top: 12px; border-left: 3px solid var(--success); }
+    .tip-box { background: #FFF8E1; border-radius: 8px; padding: 16px; margin: 12px 0; border-left: 3px solid var(--warning); }
+    .tip-box strong { color: var(--warning); }
+    .mermaid { background: white; border-radius: 12px; padding: 24px; margin: 24px 0; box-shadow: 0 2px 12px rgba(0,0,0,0.06); overflow-x: auto; }
+    .badge-step { background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+    .badge-warn { background: var(--warning); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+    .badge-ok { background: var(--success); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+    code { background: #F2F2F7; padding: 2px 8px; border-radius: 4px; font-size: 0.9em; color: #d63384; }
+    pre { background: #1C1C1E; color: #A9FF72; padding: 20px; border-radius: 12px; font-size: 0.9rem; overflow-x: auto; }
+    .toc { background: var(--light-bg); border-radius: 16px; padding: 28px; position: sticky; top: 20px; }
+    .toc a { color: var(--dark); text-decoration: none; display: block; padding: 6px 0; border-bottom: 1px solid #E5E5EA; font-size: 0.95rem; }
+    .toc a:hover { color: var(--primary); }
+    .toc a:last-child { border-bottom: none; }
+    .icon { font-size: 2rem; margin-bottom: 12px; }
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 24px 0; }
+    .feature-item { background: white; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    th { background: var(--primary); color: white; padding: 12px 16px; text-align: left; }
+    td { padding: 12px 16px; border-bottom: 1px solid #E5E5EA; }
+    tr:nth-child(even) { background: #F9F9F9; }
+    .nav-pills .nav-link.active { background: var(--primary); }
+    .tab-content { padding: 24px; background: white; border-radius: 0 12px 12px 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+    @media (max-width: 768px) { .toc { display: none; } .hero h1 { font-size: 1.8rem; } }
+  </style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <h1>📱 iOSアプリ開発ガイド</h1>
+        <p>Flutter × App Store 実践ノウハウ集<br>
+        環境構築からリリースまで、実際につまずいたポイントを網羅</p>
+        <div class="mt-3">
+          <span class="badge-ok me-2">Flutter</span>
+          <span class="badge-ok me-2">Xcode</span>
+          <span class="badge-ok me-2">App Store Connect</span>
+          <span class="badge-ok">RevenueCat</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block" style="font-size:8rem;">🚀</div>
+    </div>
+  </div>
+</div>
+
+<div class="container mt-4">
+  <div class="row">
+    <!-- TOC -->
+    <div class="col-lg-3">
+      <div class="toc">
+        <strong style="font-size:0.9rem; color:#888;">目次</strong>
+        <a href="#overview">1. 全体フロー</a>
+        <a href="#setup">2. 環境構築</a>
+        <a href="#xcode">3. Xcode設定</a>
+        <a href="#appstore">4. App Store Connect</a>
+        <a href="#revenuecat">5. RevenueCat（課金）</a>
+        <a href="#submit">6. 審査提出フロー</a>
+        <a href="#errors">7. エラー集</a>
+        <a href="#tips">8. Tips</a>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="col-lg-9">
+
+      <!-- 1. 全体フロー -->
+      <div class="section" id="overview">
+        <h2>1. 全体フロー</h2>
+        <p>アプリ開発からリリースまでの大きな流れです。各フェーズをクリックすると詳細に飛べます。</p>
+
+        <div class="mermaid">
+flowchart TD
+    A([🖥️ 環境構築]) --> B([📝 アプリ開発])
+    B --> C([⚙️ Xcode設定])
+    C --> D([🏪 App Store Connect設定])
+    D --> E([💳 IAP/課金設定])
+    E --> F([📦 Archive作成])
+    F --> G([📤 Distribute])
+    G --> H{審査}
+    H -->|承認| I([🎉 リリース！])
+    H -->|棄却| J([🔧 修正対応])
+    J --> F
+
+    style A fill:#007AFF,color:#fff
+    style B fill:#5856D6,color:#fff
+    style C fill:#FF9500,color:#fff
+    style D fill:#FF9500,color:#fff
+    style E fill:#FF9500,color:#fff
+    style F fill:#34C759,color:#fff
+    style G fill:#34C759,color:#fff
+    style H fill:#FF3B30,color:#fff
+    style I fill:#34C759,color:#fff
+    style J fill:#FF3B30,color:#fff
+        </div>
+
+        <div class="feature-grid">
+          <div class="feature-item">
+            <div class="icon">⏱️</div>
+            <strong>審査期間</strong>
+            <p style="font-size:0.9rem;color:#888;">平均1〜3日（初回は長め）</p>
+          </div>
+          <div class="feature-item">
+            <div class="icon">💰</div>
+            <strong>Developer料金</strong>
+            <p style="font-size:0.9rem;color:#888;">年額$99（約¥14,800）</p>
+          </div>
+          <div class="feature-item">
+            <div class="icon">🛠️</div>
+            <strong>必要なツール</strong>
+            <p style="font-size:0.9rem;color:#888;">Mac + Xcode + Flutter</p>
+          </div>
+          <div class="feature-item">
+            <div class="icon">📋</div>
+            <strong>審査回数</strong>
+            <p style="font-size:0.9rem;color:#888;">何度でも再提出可能</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. 環境構築 -->
+      <div class="section section-alt" id="setup">
+        <div class="container">
+          <h2>2. 環境構築</h2>
+
+          <div class="mermaid">
+flowchart LR
+    A[Xcodeインストール\nApp Store] --> B[Flutter SDK\nflutter.dev]
+    B --> C[CocoaPods\ngem install cocoapods]
+    C --> D[flutter doctor\n全項目グリーンに]
+    D --> E[完了✅]
+
+    style E fill:#34C759,color:#fff
+          </div>
+
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">1</span>
+              <div>
+                <strong>Xcodeをインストール</strong>
+                <p class="mb-0 mt-1">Mac App StoreからXcodeをインストール。20GB以上の空き容量が必要。</p>
+                <div class="tip-box mt-2">
+                  <strong>⚠️ 注意：</strong> Xcodeのバージョンは最新を使うこと。古いと審査が通らない場合あり。
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">2</span>
+              <div>
+                <strong>Flutter SDKをインストール</strong>
+                <p class="mb-0 mt-1"><a href="https://flutter.dev" target="_blank">flutter.dev</a> からダウンロード。PATHに追加を忘れずに。</p>
+                <pre>export PATH="$PATH:/path/to/flutter/bin"</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">3</span>
+              <div>
+                <strong>CocoaPodsをインストール</strong>
+                <p class="mb-0 mt-1">iOSの依存関係管理ツール。</p>
+                <pre>sudo gem install cocoapods</pre>
+                <div class="tip-box mt-2">
+                  <strong>⚠️ 注意：</strong> Xcode 16以降は CocoaPods 1.15+ が必要。バージョンを確認すること。
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">4</span>
+              <div>
+                <strong>flutter doctorで確認</strong>
+                <pre>flutter doctor</pre>
+                <p class="mt-1">全項目に ✅ がつけばOK。Xcodeのライセンス同意が必要な場合あり。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Xcode設定 -->
+      <div class="section" id="xcode">
+        <h2>3. Xcode設定</h2>
+        <p>ここが最もつまずきやすいポイントです。</p>
+
+        <h3>Bundle IDとチーム設定</h3>
+        <div class="mermaid">
+flowchart TD
+    A[Apple Developer Programに登録] --> B[Bundle IDを決める\n例: com.yourname.appname]
+    B --> C[Xcode → Runner → Signing & Capabilities]
+    C --> D[Teamを自分のアカウントに設定]
+    D --> E[Bundle Identifierを入力]
+    E --> F{一致しているか？}
+    F -->|YES| G[✅ OK]
+    F -->|NO| H[❌ ビルドエラー\nBundle ID不一致]
+    H --> E
+
+    style G fill:#34C759,color:#fff
+    style H fill:#FF3B30,color:#fff
+        </div>
+
+        <div class="tip-box">
+          <strong>⚠️ 重要：</strong> Apple Developer PortalのBundle IDとXcodeのBundle IDは完全一致が必要。大文字小文字も区別される（<code>com.noTodDoApp.first</code>など）。
+        </div>
+
+        <h3>Capabilities（機能の追加）</h3>
+        <table>
+          <tr>
+            <th>機能</th>
+            <th>用途</th>
+            <th>注意点</th>
+          </tr>
+          <tr>
+            <td>App Groups</td>
+            <td>Extension間でデータ共有</td>
+            <td>MainアプリとExtension両方に追加</td>
+          </tr>
+          <tr>
+            <td>FamilyControls</td>
+            <td>Screen Time制御</td>
+            <td><strong>Mainアプリのみ</strong>。Extensionには不要</td>
+          </tr>
+          <tr>
+            <td>Push Notifications</td>
+            <td>プッシュ通知</td>
+            <td>証明書の設定が別途必要</td>
+          </tr>
+          <tr>
+            <td>Background Modes</td>
+            <td>バックグラウンド動作</td>
+            <td>位置情報など使用時に必要</td>
+          </tr>
+        </table>
+
+        <h3>重要なビルド設定</h3>
+        <table>
+          <tr>
+            <th>設定項目</th>
+            <th>推奨値</th>
+            <th>理由</th>
+          </tr>
+          <tr>
+            <td>TARGETED_DEVICE_FAMILY</td>
+            <td><code>"1"</code>（iPhone only）</td>
+            <td>"1,2"だとiPadスクリーンショットが必要になる</td>
+          </tr>
+          <tr>
+            <td>IPHONEOS_DEPLOYMENT_TARGET</td>
+            <td>13.0以上</td>
+            <td>古すぎると一部機能が使えない</td>
+          </tr>
+          <tr>
+            <td>Debug Executable</td>
+            <td>OFF（Releaseビルド時）</td>
+            <td>ONだとMac切断時にアプリが落ちる</td>
+          </tr>
+        </table>
+
+        <h3>DeviceActivity Extension（Screen Time）</h3>
+        <div class="mermaid">
+flowchart LR
+    A[Xcode → File\n→ New Target] --> B[DeviceActivity\nMonitor Extension]
+    B --> C[Bundle ID設定\napp.main.ExtensionName]
+    C --> D[Capabilities:\nApp Groups追加]
+    D --> E[Entitlements確認\nFamilyControlsは不要！]
+    E --> F[Build Phases:\nEmbedの順序確認]
+
+    style E fill:#FF9500,color:#fff
+        </div>
+
+        <div class="error-card">
+          <h4>❌ よくあるミス：ExtensionにFamilyControlsを追加してしまう</h4>
+          <p>ExtensionのEntitlementsにFamilyControlsが含まれているとDistributeで失敗する。</p>
+          <div class="solution-box">
+            <strong>✅ 解決法：</strong> <code>NotTodoActivityMonitor.entitlements</code> からFamilyControlsを削除し、App Groupsのみにする。
+          </div>
+        </div>
+
+        <h3>Build Configuration（Scheme設定）</h3>
+        <div class="mermaid">
+flowchart LR
+    A[開発・デバッグ時] --> B[Build Configuration: Debug\nDebug Executable: ON]
+    C[実機テスト・リリース時] --> D[Build Configuration: Release\nDebug Executable: OFF]
+
+    style B fill:#007AFF,color:#fff
+    style D fill:#34C759,color:#fff
+        </div>
+      </div>
+
+      <!-- 4. App Store Connect -->
+      <div class="section section-alt" id="appstore">
+        <div class="container">
+          <h2>4. App Store Connect設定</h2>
+
+          <h3>アプリ登録フロー</h3>
+          <div class="mermaid">
+flowchart TD
+    A[App Store Connect\nappstoreconnect.apple.com] --> B[マイApp → + → 新規App]
+    B --> C[プラットフォーム: iOS\nBundle ID: 登録済みのもの]
+    C --> D[App情報を入力]
+    D --> E[スクリーンショット追加\niPhone 6.9インチ必須]
+    E --> F[プライバシーポリシーURL\n必須！]
+    F --> G[審査メモ記入\nテストアカウント情報など]
+    G --> H[審査提出]
+          </div>
+
+          <h3>必須の入力項目チェックリスト</h3>
+          <table>
+            <tr>
+              <th>項目</th>
+              <th>内容</th>
+              <th>注意点</th>
+            </tr>
+            <tr>
+              <td>App名</td>
+              <td>30文字以内</td>
+              <td>他のアプリと被らないこと</td>
+            </tr>
+            <tr>
+              <td>サブタイトル</td>
+              <td>30文字以内</td>
+              <td>検索に影響する</td>
+            </tr>
+            <tr>
+              <td>プライバシーポリシーURL</td>
+              <td>公開されているURL</td>
+              <td>GitHub Pagesで作成可能</td>
+            </tr>
+            <tr>
+              <td>App説明</td>
+              <td>4000文字以内</td>
+              <td>サブスクがあれば利用規約URLも記載</td>
+            </tr>
+            <tr>
+              <td>スクリーンショット</td>
+              <td>iPhone 6.9インチ必須</td>
+              <td>iPhone onlyならiPad不要</td>
+            </tr>
+            <tr>
+              <td>暗号化コンプライアンス</td>
+              <td>Yes / No</td>
+              <td>HTTPS使用ならYes → 標準暗号化でYes</td>
+            </tr>
+          </table>
+
+          <div class="tip-box">
+            <strong>💡 Tip：</strong> サブスクリプション（IAP）がある場合、App Descriptionに利用規約リンクを必ず記載すること。記載がないとGuideline 3.1.2(c)で棄却される。
+          </div>
+
+          <h3>ビルドのアップロードと再提出</h3>
+          <div class="mermaid">
+flowchart TD
+    A[Xcode → Product → Archive] --> B[Distribute App]
+    B --> C[App Store Connect → Upload]
+    C --> D{ビルド処理完了？}
+    D -->|15〜30分待つ| E[App Store Connect\nでビルドを選択]
+    E --> F{古いビルドを\n削除したい？}
+    F -->|YES| G[Step1: 審査項目から削除]
+    G --> H[Step2: ActivityタブからRemove]
+    H --> I[削除完了]
+    F -->|NO| J[そのまま提出]
+
+    style D fill:#FF9500,color:#fff
+    style G fill:#FF3B30,color:#fff
+    style H fill:#FF3B30,color:#fff
+          </div>
+
+          <div class="tip-box">
+            <strong>💡 Tip：</strong> ビルドの削除は2段階。まず審査項目（Submission）から外し、次にActivityタブでRemoveする。1段階だけでは消えない。
+          </div>
+
+          <h3>バージョン・ビルド番号の管理</h3>
+          <table>
+            <tr>
+              <th>場面</th>
+              <th>バージョン</th>
+              <th>ビルド番号</th>
+            </tr>
+            <tr>
+              <td>初回提出</td>
+              <td>1.0.0</td>
+              <td>1</td>
+            </tr>
+            <tr>
+              <td>同バージョン再提出</td>
+              <td>1.0.0（そのまま）</td>
+              <td>2, 3…（毎回+1）</td>
+            </tr>
+            <tr>
+              <td>機能追加アップデート</td>
+              <td>1.1.0</td>
+              <td>続きの番号</td>
+            </tr>
+            <tr>
+              <td>バグ修正アップデート</td>
+              <td>1.0.1</td>
+              <td>続きの番号</td>
+            </tr>
+          </table>
+          <p><code>pubspec.yaml</code> の <code>version: 1.0.0+1</code> → <code>+</code> 以降がビルド番号。Xcodeが自動でインクリメントする場合もあり。</p>
+        </div>
+      </div>
+
+      <!-- 5. RevenueCat -->
+      <div class="section" id="revenuecat">
+        <h2>5. RevenueCat（課金）</h2>
+
+        <h3>全体の設定フロー</h3>
+        <div class="mermaid">
+flowchart TD
+    A[App Store Connect\nサブスクリプション商品作成] --> B[RevenueCatアカウント作成\nrevenuecat.com]
+    B --> C[RevenueCatでApp登録\nBundle ID + APIキー取得]
+    C --> D[商品をRevenueCatに登録\nProduct IDを入力]
+    D --> E[Offeringsを作成\nMake Currentを忘れずに]
+    E --> F[FlutterアプリにSDK追加\npurchases_flutter]
+    F --> G[APIキーをコードに設定]
+    G --> H[サンドボックステスターで動作確認]
+
+    style E fill:#FF9500,color:#fff
+        </div>
+
+        <div class="error-card">
+          <h4>❌ よくあるミス：Offeringsが表示されない</h4>
+          <p>商品を作成してもアプリに表示されない場合がある。</p>
+          <div class="solution-box">
+            <strong>✅ 解決法：</strong> RevenueCatのダッシュボードでOfferingsを開き、作成したOfferingを <strong>Make Current</strong> に設定する。これを忘れると永遠に表示されない。
+          </div>
+        </div>
+
+        <h3>サンドボックステスト</h3>
+        <table>
+          <tr>
+            <th>項目</th>
+            <th>内容</th>
+          </tr>
+          <tr>
+            <td>テスターアカウント作成</td>
+            <td>App Store Connect → Users and Access → Sandbox → Testers</td>
+          </tr>
+          <tr>
+            <td>価格表示</td>
+            <td>テスター地域に依存（米国テスターならUSD表示）</td>
+          </tr>
+          <tr>
+            <td>パスワードリセット</td>
+            <td>App Store Connect → Sandbox → Testers → Edit</td>
+          </tr>
+          <tr>
+            <td>購入テスト</td>
+            <td>実機のSettings → App Store → Sandbox Accountで設定</td>
+          </tr>
+        </table>
+
+        <div class="tip-box">
+          <strong>💡 Tip：</strong> サンドボックス環境では価格がドル表示になることがある。本番（App Store）では正しい通貨で表示される。
+        </div>
+
+        <h3>IAPの審査提出（重要！）</h3>
+        <div class="mermaid">
+flowchart LR
+    A[App Store Connect\n→ Monetization\n→ Subscriptions] --> B[対象のサブスクを選択]
+    B --> C[Submit for Review]
+    C --> D[App Review用\nスクリーンショット添付\nペイウォール画面]
+    D --> E[アプリ提出時に\nIAPも選択する]
+
+    style C fill:#FF3B30,color:#fff
+    style E fill:#FF3B30,color:#fff
+        </div>
+
+        <div class="error-card">
+          <h4>❌ Guideline 2.1(b) — IAPが審査に未提出</h4>
+          <p>アプリ審査と同時にIAPも審査に出す必要がある。</p>
+          <div class="solution-box">
+            <strong>✅ 解決法：</strong>
+            <ol class="mb-0 mt-2">
+              <li>Monetization → Subscriptions → Submit for Review</li>
+              <li>スクリーンショット（ペイウォール画面）を添付</li>
+              <li>アプリ提出画面でIAPにチェックを入れる</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. 審査提出フロー -->
+      <div class="section section-alt" id="submit">
+        <div class="container">
+          <h2>6. 審査提出フロー</h2>
+
+          <div class="mermaid">
+flowchart TD
+    A[flutter build ios\n--release] --> B[Xcode → Product\n→ Archive]
+    B --> C[Organizer → Distribute App]
+    C --> D[App Store Connect]
+    D --> E[Upload]
+    E --> F{処理完了？\n15〜30分}
+    F -->|YES| G[App Store Connect\nでビルド選択]
+    G --> H[暗号化コンプライアンス\n回答]
+    H --> I[Add for Review]
+    I --> J[Submit to App Review]
+
+    style F fill:#FF9500,color:#fff
+    style J fill:#34C759,color:#fff
+          </div>
+
+          <h3>よくある審査棄却と対応</h3>
+          <table>
+            <tr>
+              <th>Guideline</th>
+              <th>棄却理由</th>
+              <th>対応方法</th>
+            </tr>
+            <tr>
+              <td>2.1(b)</td>
+              <td>IAPが審査未提出</td>
+              <td>IAPをSubmit for Review + スクリーンショット</td>
+            </tr>
+            <tr>
+              <td>3.1.2(c)</td>
+              <td>利用規約リンクなし</td>
+              <td>App Descriptionに利用規約URLを記載</td>
+            </tr>
+            <tr>
+              <td>2.1</td>
+              <td>iPadスクリーンショット不足</td>
+              <td>TARGETED_DEVICE_FAMILY="1"でiPhone only化</td>
+            </tr>
+            <tr>
+              <td>5.1.1</td>
+              <td>プライバシーポリシーなし</td>
+              <td>公開URLをApp Store Connectに設定</td>
+            </tr>
+          </table>
+
+          <h3>審査メモ（App Review Information）のテンプレート</h3>
+          <pre>【テストアカウント】
+Email: sandbox@example.com
+Password: TestPass123
+
+【主な機能】
+- やらないことリストの登録（無料：5件まで）
+- アプリ使用時間の制限設定
+- 場所ベースのリマインダー
+- プレミアムプランでの無制限利用
+
+【Screen Timeについて】
+本アプリはFamilyControlsを使用した自己管理目的のアプリです。
+実機でテストしてください（シミュレーター非対応）。
+
+【お問い合わせ】
+inquiry@example.com</pre>
+        </div>
+      </div>
+
+      <!-- 7. エラー集 -->
+      <div class="section" id="errors">
+        <h2>7. エラー集（実体験ベース）</h2>
+        <p>実際の開発で遭遇したエラーと解決方法をまとめています。</p>
+
+        <div class="error-card">
+          <h4>❌ 1. Bundle ID不一致</h4>
+          <p><strong>症状：</strong> ビルドは通るが、FamilyControlsなどのCapabilityが機能しない</p>
+          <div class="solution-box">
+            <strong>✅ 解決法：</strong> Xcode → Runner → Signing & Capabilities のBundle IdentifierとApple Developer PortalのBundle IDを完全一致させる。大文字小文字も注意。
+          </div>
+        </div>
+
+        <div class="error-card">
+          <h4>❌ 2. Build Cycle Error</h4>
+          <p><strong>症状：</strong> "Cycle inside Runner; building could produce unreliable results"</p>
+          <div class="solution-box">
+            <strong>✅ 解決法：</strong> Build Phases の順序を変更。「Embed Foundation Extensions」を「Thin Binary」より前に移動する。
+          </div>
+        </div>
+
+        <div class="error-card">
+          <h4>❌ 3. シミュレーターで白画面</h4>
+          <p><strong>症状：</strong> シミュレーターでアプリを起動すると画面が真っ白のまま</p>
+          <p><strong>原因1：</strong> objective_c.framework がiOSデバイス用でシミュレーター非対応</p>
+          <p><strong>原因2：</strong> FamilyControls/DeviceActivity APIをシミュレーターで呼んでいる</p>
+          <div class="solution-box">
+            <strong>✅ 解決法：</strong>
+            <ol class="mb-0 mt-2">
+              <li><code>flutter clean &amp;&amp; flutter pub get</code></li>
+              <li>DerivedDataを削除</li>
+              <li>XcodeのGUIではなく <code>flutter run -d [シミュレーターID]</code> で実行</li>
+              <li>FamilyControls系は <code>#if !targetEnvironment(simulator)</code> で囲む</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="error-card">
+          <h4>❌ 4. Distribution時にEntitlementエラー</h4>
+          <p><strong>症状：</strong> "Provisioning profile doesn't include the Family Controls capability"</p>
+          <div class="solution-box">
+            <strong>✅ 解決法：</strong> ExtensionのEntitlementsからFamilyControlsを削除する。FamilyControlsはメインアプリのEntitlementsにだけ必要。
+          </div>
+        </div>
+
+        <div class="error-card">
+          <h4>❌ 5. コールドスタートクラッシュ</h4>
+          <p><strong>症状：</strong> デバッガーなしで起動するとクラッシュ/白画面</p>
+          <div class="solution-box">
+            <strong>✅ 解決法：</strong> main.dart の初期化処理をtry-catchで囲む。
+            <pre class="mt-2">try {
+  await PremiumService.instance.init();
+} catch (e) {
+  debugPrint('init error: $e');
+}</pre>
+          </div>
+        </div>
+
+        <div class="error-card">
+          <h4>❌ 6. タスクを切るとアプリが落ちる</h4>
+          <p><strong>症状：</strong> アプリスイッチャーでアプリを閉じると再起動できない</p>
+          <div class="solution-box">
+            <strong>✅ 解決法：</strong> Xcode → Edit Scheme → Run → Build Configuration を <strong>Release</strong> に変更し、<strong>Debug executable をOFF</strong> にする。
+          </div>
+        </div>
+
+        <div class="error-card">
+          <h4>❌ 7. 進捗バーが途中で止まる</h4>
+          <p><strong>症状：</strong> 制限時間が短い場合（1〜3分）に進捗バーが50%や75%で止まる</p>
+          <div class="solution-box">
+            <strong>✅ 解決法：</strong> 閾値（25/50/75/100%）が同じ分数になる場合に重複が発生する。Setで重複排除し、100%は必ず含めるロジックを実装する。
+          </div>
+        </div>
+
+        <div class="error-card">
+          <h4>❌ 8. dSYM警告</h4>
+          <p><strong>症状：</strong> "The archive did not include a dSYM for objective_c.framework"</p>
+          <div class="solution-box">
+            <strong>✅ 解決法：</strong> 無視してOK。審査には影響しない。クラッシュレポートの一部が読めなくなるだけ。
+          </div>
+        </div>
+
+        <div class="error-card">
+          <h4>❌ 9. CocoaPods object version エラー</h4>
+          <p><strong>症状：</strong> "Unable to find compatibility version string for object version 70"</p>
+          <div class="solution-box">
+            <strong>✅ 解決法：</strong> <code>gem install cocoapods</code> で最新版に更新。それでも失敗する場合は <code>flutter run</code> コマンドを使う（Flutterが自動対応してくれる）。
+          </div>
+        </div>
+      </div>
+
+      <!-- 8. Tips -->
+      <div class="section section-alt" id="tips">
+        <div class="container">
+          <h2>8. Tips・その他</h2>
+
+          <h3>GitHub Pagesでプライバシーポリシーを公開</h3>
+          <div class="mermaid">
+flowchart LR
+    A[GitHubで\nリポジトリ作成] --> B[privacy.html\nterms.html\nhelp.html を作成]
+    B --> C[Settings → Pages\n→ Branch: main]
+    C --> D[公開URL取得\nyourname.github.io/repo/]
+    D --> E[App Store Connectに\nURL設定]
+          </div>
+
+          <div class="tip-box">
+            <strong>💡 Tip：</strong> プライバシーポリシーは審査前に必ず公開状態にすること。下書きや認証必要なページはNG。
+          </div>
+
+          <h3>シミュレーターvs実機</h3>
+          <table>
+            <tr>
+              <th>機能</th>
+              <th>シミュレーター</th>
+              <th>実機</th>
+            </tr>
+            <tr>
+              <td>FamilyControls</td>
+              <td>❌ 非対応</td>
+              <td>✅ 対応</td>
+            </tr>
+            <tr>
+              <td>DeviceActivity</td>
+              <td>❌ 非対応</td>
+              <td>✅ 対応</td>
+            </tr>
+            <tr>
+              <td>Push通知</td>
+              <td>⚠️ 制限あり</td>
+              <td>✅ 対応</td>
+            </tr>
+            <tr>
+              <td>位置情報</td>
+              <td>⚠️ 疑似的</td>
+              <td>✅ 実際のGPS</td>
+            </tr>
+            <tr>
+              <td>RevenueCat</td>
+              <td>⚠️ StoreKit設定必要</td>
+              <td>✅ サンドボックスで動作</td>
+            </tr>
+          </table>
+
+          <h3>便利なコマンド集</h3>
+          <pre># クリーンビルド
+flutter clean && flutter pub get && cd ios && pod install && cd ..
+
+# シミュレーター一覧
+xcrun simctl list devices available
+
+# シミュレーターで実行
+flutter run -d [シミュレーターUDID]
+
+# リリースビルド
+flutter run --release
+
+# 使用中ポートの確認（ビルドが固まった時）
+lsof -i :8080</pre>
+
+          <h3>開発の心得</h3>
+          <div class="feature-grid">
+            <div class="feature-item">
+              <div class="icon">🔄</div>
+              <strong>こまめにコミット</strong>
+              <p style="font-size:0.85rem;color:#888;">動いたタイミングでgit commit</p>
+            </div>
+            <div class="feature-item">
+              <div class="icon">📱</div>
+              <strong>実機で確認</strong>
+              <p style="font-size:0.85rem;color:#888;">シミュレーターは参考程度</p>
+            </div>
+            <div class="feature-item">
+              <div class="icon">📋</div>
+              <strong>審査メモを丁寧に</strong>
+              <p style="font-size:0.85rem;color:#888;">審査官へのガイドが重要</p>
+            </div>
+            <div class="feature-item">
+              <div class="icon">⏳</div>
+              <strong>審査は待つもの</strong>
+              <p style="font-size:0.85rem;color:#888;">平均1〜3日。焦らずに</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="text-center py-4" style="color:#888; font-size:0.9rem;">
+        <p>iOSアプリ開発ガイド — 実体験ベースのノウハウ集</p>
+      </footer>
+
+    </div><!-- /col -->
+  </div><!-- /row -->
+</div><!-- /container -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default', themeVariables: { primaryColor: '#007AFF', primaryTextColor: '#fff', primaryBorderColor: '#0056b3' }});
+</script>
+</body>
+</html>
