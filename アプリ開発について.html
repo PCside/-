@@ -82,6 +82,7 @@
         <strong style="font-size:0.9rem; color:#888;">目次</strong>
         <a href="#overview">1. 全体フロー</a>
         <a href="#setup">2. 環境構築</a>
+        <a href="#momemo">9. momemo 開発記録</a>
         <a href="#xcode">3. Xcode設定</a>
         <a href="#appstore">4. App Store Connect</a>
         <a href="#revenuecat">5. RevenueCat（課金）</a>
@@ -769,6 +770,241 @@ lsof -i :8080</pre>
               <p style="font-size:0.85rem;color:#888;">平均1〜3日。焦らずに</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- 9. momemo 開発記録 -->
+      <div class="section section-alt" id="momemo">
+        <div class="container">
+          <h2>9. momemo 開発記録（SwiftUI × Supabase）</h2>
+          <p>カップル向けAIコミュニケーションアプリ「momemo」の開発で実際に直面したエラーと解決策、およびアーキテクチャのまとめです。</p>
+
+          <div class="feature-grid">
+            <div class="feature-item">
+              <div class="icon">🍎</div>
+              <strong>SwiftUI</strong>
+              <p style="font-size:0.85rem;color:#888;">iOS ネイティブ</p>
+            </div>
+            <div class="feature-item">
+              <div class="icon">🗄️</div>
+              <strong>Supabase</strong>
+              <p style="font-size:0.85rem;color:#888;">DB / Auth / Edge Functions</p>
+            </div>
+            <div class="feature-item">
+              <div class="icon">🤖</div>
+              <strong>Gemini 2.0 Flash</strong>
+              <p style="font-size:0.85rem;color:#888;">AI アドバイス生成</p>
+            </div>
+            <div class="feature-item">
+              <div class="icon">🔔</div>
+              <strong>APNs</strong>
+              <p style="font-size:0.85rem;color:#888;">プッシュ通知</p>
+            </div>
+          </div>
+
+          <h3>アーキテクチャ概要</h3>
+          <div class="mermaid">
+flowchart TD
+    A([📱 iOS App\nSwiftUI]) -->|音声録音| B([🔤 Share Extension])
+    B -->|App Group\nテキスト共有| C([📝 Submission Flow])
+    C -->|Supabase SDK| D[(submissions\nテーブル)]
+    D -->|DBトリガー\npg_net| E([⚡ Edge Function\ngenerate-advice])
+    E -->|Gemini API| F([🤖 AI アドバイス生成])
+    F -->|advicesテーブルへ保存| G[(advices\nテーブル)]
+    G -->|APNs| H([🔔 プッシュ通知])
+    H --> A
+    E -->|clean-text| I([🧹 Edge Function\nclean-text])
+    I -->|Gemini API| J([文字起こし清書])
+
+    style A fill:#007AFF,color:#fff
+    style E fill:#5856D6,color:#fff
+    style F fill:#34C759,color:#fff
+    style H fill:#FF9500,color:#fff
+          </div>
+
+          <h3>主要テーブル構成</h3>
+          <table>
+            <tr>
+              <th>テーブル</th>
+              <th>用途</th>
+              <th>RLS ポリシーのポイント</th>
+            </tr>
+            <tr>
+              <td><code>profiles</code></td>
+              <td>ユーザープロフィール（MBTI・ラブランゲージ等）</td>
+              <td>自分のレコードのみ読み書き可</td>
+            </tr>
+            <tr>
+              <td><code>invite_codes</code></td>
+              <td>ペアリング用招待コード（有効期限24時間）</td>
+              <td>作成者のみ書き込み可。<strong>未使用・有効なコードは全認証ユーザーが参照可</strong>（redemption用）</td>
+            </tr>
+            <tr>
+              <td><code>couples</code></td>
+              <td>ペア情報（user_a_id / user_b_id）</td>
+              <td>自分が含まれるレコードのみ参照可。INSERTは <code>user_b_id = auth.uid()</code></td>
+            </tr>
+            <tr>
+              <td><code>submissions</code></td>
+              <td>気持ちの提出（音声→テキスト変換後）</td>
+              <td>同じ couple_id のメンバーが参照可</td>
+            </tr>
+            <tr>
+              <td><code>advices</code></td>
+              <td>AIが生成したアドバイス（A向け・B向け各々）</td>
+              <td>同じ couple_id のメンバーが参照可</td>
+            </tr>
+          </table>
+
+          <h3>録音→提出フロー</h3>
+          <div class="mermaid">
+sequenceDiagram
+    participant U as ユーザー
+    participant VM as ボイスメモアプリ
+    participant SE as Share Extension
+    participant AG as App Group
+    participant App as momemo本体
+    participant SB as Supabase
+
+    U->>VM: 録音
+    U->>SE: 共有ボタン → momemo
+    SE->>SB: clean-text（Gemini で清書）
+    SE->>AG: 清書済みテキストを書き込み
+    App->>AG: pendingSharedText を読み取り
+    App->>U: SubmissionEditView表示（編集可能）
+    U->>App: 送信ボタン
+    App->>SB: submissions テーブルにINSERT
+    SB->>SB: DBトリガー発火
+    SB->>App: generate-advice Edge Function呼び出し
+          </div>
+
+          <h3>遭遇したエラーと解決策</h3>
+
+          <div class="error-card">
+            <h4>❌ RLS ポリシーでペアリングができない</h4>
+            <p>招待コードを入力しても「無効なコード」エラーになる。他人が作ったコードをSELECTできないRLSポリシーが原因。</p>
+            <div class="solution-box">
+              <strong>✅ 解決：</strong> <code>invite_codes_redeem_select</code> ポリシーを追加。<code>used = false AND expires_at &gt; now()</code> の条件で認証済みユーザーなら参照可能に変更。<br>
+              また <code>couples_insert</code> に <code>user_b_id = auth.uid()</code> 条件のINSERT許可ポリシーも必要。
+            </div>
+          </div>
+
+          <div class="error-card">
+            <h4>❌ generate-advice が常に 401 Unauthorized</h4>
+            <p>DBトリガーからEdge Functionを呼び出すと401。WEBHOOK_SECRET環境変数の値とDBトリガーが送るシークレットが不一致だった。</p>
+            <div class="solution-box">
+              <strong>✅ 解決：</strong> Edge Function内の <code>WEBHOOK_SECRET</code> チェックを削除。DBトリガーからの内部呼び出しは関数URLが秘匿情報として機能するため、シークレット検証なしで問題なし。<br>
+              <code>verify_jwt: false</code> かつWEBHOOK_SECRET不要に変更。
+            </div>
+          </div>
+
+          <div class="error-card">
+            <h4>❌ Gemini API キー 429 (limit: 0)</h4>
+            <p>APIキーを設定したのに429エラー。エラー詳細に <code>limit: 0</code> と表示される。</p>
+            <div class="solution-box">
+              <strong>✅ 解決：</strong> Google Cloud Console経由のキーは課金プロジェクトのため無料枠(limit)が0になる。<strong>Google AI Studio</strong>（aistudio.google.com）で「Create API key in new project」からキーを発行し直すこと。AI Studioのキーは1日1500リクエスト無料で使える。
+            </div>
+          </div>
+
+          <div class="error-card">
+            <h4>❌ 提出後にホーム画面の状態が更新されない</h4>
+            <p>SubmissionEditViewを閉じてもホームの「提出済み」フラグが変わらない。</p>
+            <div class="solution-box">
+              <strong>✅ 解決：</strong> <code>NotificationCenter</code> を使って提出完了通知を発行。ホーム画面が <code>.onReceive</code> で受信して <code>vm.fetch()</code> を呼ぶ方式に。<br>
+              <code>extension Notification.Name { static let submissionCompleted = ... }</code>
+            </div>
+          </div>
+
+          <div class="error-card">
+            <h4>❌ シミュレーターでApple Sign In・Google Sign Inが動かない</h4>
+            <p>AppleはシミュレーターのiCloud設定制限。GoogleはFirebase iOSキーはSupabase OAuth対応外。</p>
+            <div class="solution-box">
+              <strong>✅ 解決：</strong> <code>#if DEBUG</code> ブロックでメール/パスワードログインを追加。<br>
+              Supabaseの無料枠レートリミットでメール登録もできない場合は、SQL直接実行で <code>auth.users</code> にINSERT（<code>email_confirmed_at</code> を now() に設定）。
+            </div>
+          </div>
+
+          <div class="error-card">
+            <h4>❌ コード入力がフリック入力のみになる</h4>
+            <p>招待コード入力のTextFieldでアルファベット/数字キーボードが出ない。</p>
+            <div class="solution-box">
+              <strong>✅ 解決：</strong> <code>.keyboardType(.asciiCapable)</code> と <code>.autocorrectionDisabled()</code> を追加。さらにOnChangeで <code>.filter { $0.isLetter || $0.isNumber }</code> でフィルタリング。
+            </div>
+          </div>
+
+          <div class="error-card">
+            <h4>❌ Age Rating Declaration の型エラー（App Store Connect API）</h4>
+            <p>API経由でAge Rating設定時に400エラー。<code>messagingAndChat</code> や <code>userGeneratedContent</code> をString型で送っていた。</p>
+            <div class="solution-box">
+              <strong>✅ 解決：</strong> これらのフィールドはBoolean型。<code>"messagingAndChat": true</code> のように設定。また <code>advertising</code>・<code>parentalControls</code>・<code>ageAssurance</code> も必須フィールドのため含める。
+            </div>
+          </div>
+
+          <h3>月間レートリミット実装</h3>
+          <p>無料枠でのコスト管理として、カップルごとに月5ラウンド制限を実装。</p>
+          <pre>// Edge Function内での月間チェック
+const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+const thisMonthAdvices = existingAdvices.filter(a => a.created_at >= monthStart);
+if (thisMonthAdvices.length >= FREE_ROUNDS_PER_MONTH) {
+  // 両者にAPNs通知して終了
+  return new Response("Rate limit reached", { status: 200 });
+}</pre>
+
+          <h3>DEBUG機能の分離</h3>
+          <table>
+            <tr>
+              <th>機能</th>
+              <th>実装方法</th>
+              <th>用途</th>
+            </tr>
+            <tr>
+              <td>メール/パスワードログイン</td>
+              <td><code>#if DEBUG</code> ブロック</td>
+              <td>シミュレーターでのAuth回避</td>
+            </tr>
+            <tr>
+              <td>テキスト直接入力ボタン</td>
+              <td><code>#if DEBUG</code> ブロック</td>
+              <td>録音フローをシミュレート</td>
+            </tr>
+          </table>
+          <div class="tip-box">
+            <strong>💡 注意：</strong> <code>#if DEBUG</code> は Releaseスキームでビルドすると自動的に除外されます。App Store提出時は Release スキームを使うこと。
+          </div>
+
+          <h3>環境変数（Supabase Secrets）</h3>
+          <table>
+            <tr>
+              <th>変数名</th>
+              <th>用途</th>
+              <th>取得元</th>
+            </tr>
+            <tr>
+              <td><code>GEMINI_API_KEY_momemo</code></td>
+              <td>Gemini API認証</td>
+              <td>aistudio.google.com → 新規プロジェクトで発行</td>
+            </tr>
+            <tr>
+              <td><code>APNS_KEY_ID</code></td>
+              <td>APNs JWT署名</td>
+              <td>Apple Developer → Keys</td>
+            </tr>
+            <tr>
+              <td><code>APNS_TEAM_ID</code></td>
+              <td>APNs JWT署名</td>
+              <td>Apple Developer → Membership</td>
+            </tr>
+            <tr>
+              <td><code>APNS_PRIVATE_KEY</code></td>
+              <td>APNs JWT署名</td>
+              <td>Apple Developer → Keys（.p8ファイルの中身）</td>
+            </tr>
+            <tr>
+              <td><code>APNS_SANDBOX</code></td>
+              <td>APNs環境切替</td>
+              <td>開発: <code>true</code> / 本番: <code>false</code></td>
+            </tr>
+          </table>
         </div>
       </div>
 
