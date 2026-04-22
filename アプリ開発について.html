@@ -83,6 +83,7 @@
         <a href="#overview">1. 全体フロー</a>
         <a href="#setup">2. 環境構築</a>
         <a href="#momemo">9. momemo 開発記録</a>
+        <a href="#security">10. セキュリティ・鍵管理</a>
         <a href="#xcode">3. Xcode設定</a>
         <a href="#appstore">4. App Store Connect</a>
         <a href="#revenuecat">5. RevenueCat（課金）</a>
@@ -1005,6 +1006,253 @@ if (thisMonthAdvices.length >= FREE_ROUNDS_PER_MONTH) {
               <td>開発: <code>true</code> / 本番: <code>false</code></td>
             </tr>
           </table>
+        </div>
+      </div>
+
+      <!-- 10. セキュリティ・鍵管理 -->
+      <div class="section" id="security">
+        <h2>10. セキュリティ・鍵管理</h2>
+        <p>App Store Connect API キー（<code>.p8</code>）、APNs 鍵、Supabase Service Role キーなど、流出すると即座に悪用されうる秘密情報の取り扱いルールです。実際に AI アシスタントの対話ログに秘密鍵が平文で残っていた事例があり、そこから得た教訓をまとめています。</p>
+
+        <h3>大原則</h3>
+        <div class="feature-grid">
+          <div class="feature-item">
+            <div class="icon">🔒</div>
+            <strong>権限は 600</strong>
+            <p style="font-size:0.85rem;color:#888;">所有者のみ読み書き可</p>
+          </div>
+          <div class="feature-item">
+            <div class="icon">🚫</div>
+            <strong>全文 dump 禁止</strong>
+            <p style="font-size:0.85rem;color:#888;"><code>cat</code> は使わない</p>
+          </div>
+          <div class="feature-item">
+            <div class="icon">🔁</div>
+            <strong>漏洩即ローテ</strong>
+            <p style="font-size:0.85rem;color:#888;">疑いありなら revoke</p>
+          </div>
+          <div class="feature-item">
+            <div class="icon">📝</div>
+            <strong>ログ監査</strong>
+            <p style="font-size:0.85rem;color:#888;">AI ログ・履歴を定期確認</p>
+          </div>
+        </div>
+
+        <h3>秘密ファイルのパーミッション</h3>
+        <p>秘密鍵ファイルは必ず所有者のみ読み書き可（600）にする。644 のままだと同一マシンの他ユーザーや、マルウェアに権限昇格されたプロセスが読める。</p>
+        <pre># 対象ファイルを一括で 600 に
+chmod 600 ~/.blitz/asc-credentials.json
+chmod 600 ~/.ssh/id_*
+chmod 600 ~/AuthKey_*.p8
+
+# 確認
+ls -la ~/.blitz/asc-credentials.json
+# → -rw------- が正常</pre>
+
+        <div class="error-card">
+          <h4>❌ アンチパターン：credential ファイルを <code>cat</code> する</h4>
+          <p><code>cat ~/.blitz/asc-credentials.json</code> の出力は、シェル履歴・ターミナルスクロールバッファ・AI アシスタントの対話ログなど複数の場所に平文で残る。一度でも実行すれば「そのファイルは漏洩したものとして扱う」ぐらいの警戒が必要。</p>
+          <div class="solution-box">
+            <strong>✅ 代わりに：</strong> 構造だけ知りたいならメタ情報のみ抽出する。
+            <pre class="mt-2">python3 -c "
+import json, pathlib
+d = json.loads(pathlib.Path('~/.blitz/asc-credentials.json').expanduser().read_text())
+print('keys:', list(d.keys()))
+print('privateKey length:', len(d['privateKey']))
+print('first line:', d['privateKey'].splitlines()[0])"</pre>
+          </div>
+        </div>
+
+        <h3>AI アシスタント利用時の注意</h3>
+        <div class="tip-box">
+          <strong>⚠️ 最重要：</strong> Claude Code / Cursor / Cline などの AI コーディングアシスタントは、bash ツールの stdout をそのまま会話ログ（JSONL 等）に保存する。<code>cat</code> で鍵を表示させると <strong>そのログファイルに鍵が永続化</strong> される。ログの保存場所は <code>~/.claude/projects/</code>, <code>~/.cursor/</code> など。
+        </div>
+        <table>
+          <tr>
+            <th>行為</th>
+            <th>リスク</th>
+            <th>代替</th>
+          </tr>
+          <tr>
+            <td><code>cat secret.json</code> を AI に実行させる</td>
+            <td>ログ・キャッシュに平文残存</td>
+            <td>長さ・先頭行・フィールド名のみ表示</td>
+          </tr>
+          <tr>
+            <td>鍵を会話にコピペして「これ使って」</td>
+            <td>会話全体がクラウドに送信・保存</td>
+            <td>ローカルファイルから読む script を書かせる</td>
+          </tr>
+          <tr>
+            <td>env var に鍵を設定してスクショを貼る</td>
+            <td>OCR / キャプチャログで流出</td>
+            <td>コマンド名だけ見せる、値はマスキング</td>
+          </tr>
+          <tr>
+            <td>「動かないので rm -rf 全部見せて」</td>
+            <td><code>.env</code> や <code>.p8</code> が混入</td>
+            <td>対象ディレクトリを限定、<code>--exclude</code></td>
+          </tr>
+        </table>
+
+        <h3>漏洩時の対応手順</h3>
+        <div class="mermaid">
+flowchart TD
+    A[秘密情報の漏洩を確認/疑う] --> B[該当キーを即失効<br/>revoke]
+    B --> C[新しいキーを発行]
+    C --> D[新キーをローカルに配置<br/>chmod 600]
+    D --> E[ログ・履歴・AIセッションから<br/>旧キーの痕跡を削除]
+    E --> F[コミット履歴を調査<br/>git log / git grep]
+    F --> G{公開リポジトリに<br/>コミットされていたか？}
+    G -->|YES| H[履歴からも削除<br/>git filter-repo<br/>+ force push]
+    G -->|NO| I[ローカル対応で完了]
+    H --> J[事後監査<br/>ASC Activity 等で<br/>不審アクセス確認]
+    I --> J
+
+    style A fill:#FF3B30,color:#fff
+    style B fill:#FF9500,color:#fff
+    style J fill:#34C759,color:#fff
+        </div>
+
+        <div class="step-card">
+          <div class="d-flex align-items-start">
+            <span class="step-number">1</span>
+            <div>
+              <strong>ASC API キーの失効（revoke）</strong>
+              <p class="mb-0 mt-1">App Store Connect → Users and Access → Integrations → App Store Connect API → 該当キーの「Revoke」。失効は即時反映、以降 JWT 署名が拒否される。自分が今使っているキーを revoke すると即ロックアウトされるので、作業用の別キーが必要な場合は先に新キーを発行しておく。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="d-flex align-items-start">
+            <span class="step-number">2</span>
+            <div>
+              <strong>APNs 鍵の失効</strong>
+              <p class="mb-0 mt-1">Apple Developer → Certificates, Identifiers &amp; Profiles → Keys → 対象キーの Revoke。プッシュ通知を送信中のサーバーがあれば新キーへの切り替えを忘れずに。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="d-flex align-items-start">
+            <span class="step-number">3</span>
+            <div>
+              <strong>Supabase Service Role キーのローテーション</strong>
+              <p class="mb-0 mt-1">Supabase Dashboard → Project Settings → API → Service Role key の「Regenerate」。Edge Functions の環境変数も更新が必要（<code>supabase secrets set</code>）。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="d-flex align-items-start">
+            <span class="step-number">4</span>
+            <div>
+              <strong>ログ・痕跡の削除</strong>
+              <p class="mb-0 mt-1">AI セッションログ、シェル履歴、CI のログなどから漏洩値を検索・削除する。</p>
+              <pre class="mt-2"># Claude Code のセッションログから検索
+grep -l "BEGIN PRIVATE KEY" ~/.claude/projects/*/*.jsonl
+
+# 該当ファイルを削除
+rm ~/.claude/projects/&lt;project&gt;/&lt;session-id&gt;.jsonl
+
+# zsh / bash 履歴から削除（該当行を特定して）
+history | grep -n "cat.*credentials"
+# → 行番号を確認して ~/.zsh_history を直接編集</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="d-flex align-items-start">
+            <span class="step-number">5</span>
+            <div>
+              <strong>Git 履歴からの削除（公開リポジトリにコミットしてしまった場合）</strong>
+              <pre class="mt-2"># 最新コミットのみなら amend
+git rm --cached leaked-file.p8
+git commit --amend --no-edit
+git push --force-with-lease
+
+# 過去のコミットにも入っているなら git filter-repo（要インストール）
+git filter-repo --path leaked-file.p8 --invert-paths
+git push --force-with-lease --all</pre>
+              <p class="mt-2 mb-0">Force push 後も GitHub のキャッシュから一定期間取得可能なので、<strong>結局 revoke が唯一の真の対策</strong>。履歴削除は補助的な作業。</p>
+            </div>
+          </div>
+        </div>
+
+        <h3>予防策：そもそも漏らさない設計</h3>
+        <table>
+          <tr>
+            <th>リソース</th>
+            <th>推奨保管場所</th>
+            <th>コードからのアクセス方法</th>
+          </tr>
+          <tr>
+            <td>ASC API 鍵（<code>.p8</code>）</td>
+            <td><code>~/.blitz/</code>, <code>~/.appstoreconnect/</code>（600）</td>
+            <td>ランタイムに <code>open()</code> で読む。環境変数でパスだけ渡す</td>
+          </tr>
+          <tr>
+            <td>APNs 鍵</td>
+            <td>Supabase Secrets / AWS Secrets Manager</td>
+            <td>Edge Function 内で <code>Deno.env.get()</code></td>
+          </tr>
+          <tr>
+            <td>Gemini / OpenAI API キー</td>
+            <td>Supabase Secrets（クライアント側には置かない）</td>
+            <td>必ず Edge Function 経由で呼び出す</td>
+          </tr>
+          <tr>
+            <td>Supabase Service Role</td>
+            <td>サーバー側環境変数のみ</td>
+            <td><strong>絶対にクライアント（iOS アプリ）に埋め込まない</strong></td>
+          </tr>
+          <tr>
+            <td>Firebase Admin 鍵</td>
+            <td>サーバー側環境変数のみ</td>
+            <td>クライアントは公開 API キーのみ使用</td>
+          </tr>
+        </table>
+
+        <div class="error-card">
+          <h4>❌ よくあるミス：iOS アプリのバイナリに秘密キーを埋め込む</h4>
+          <p>クライアント配布バイナリは <code>strings</code> コマンドや ipa 解凍で中身が読める。Supabase Service Role キーや OpenAI キーなどを直接埋めると即流出。</p>
+          <div class="solution-box">
+            <strong>✅ 解決：</strong> クライアントには Anon Key / Publishable Key（RLS で保護）のみ。機密操作は必ず Edge Function / バックエンドを経由させる。
+          </div>
+        </div>
+
+        <h3>定期監査のチェックリスト</h3>
+        <div class="feature-grid">
+          <div class="feature-item">
+            <strong>🗓️ 四半期ごと</strong>
+            <ul style="text-align:left; font-size:0.85rem; padding-left:18px; margin-bottom:0;">
+              <li>ASC API キーの使用状況確認</li>
+              <li>古い .p8 ファイルの棚卸し</li>
+              <li>不要になったキーは revoke</li>
+            </ul>
+          </div>
+          <div class="feature-item">
+            <strong>⏱️ 毎回</strong>
+            <ul style="text-align:left; font-size:0.85rem; padding-left:18px; margin-bottom:0;">
+              <li>AI に credential 扱わせる前に一瞬考える</li>
+              <li><code>cat</code> ではなくメタ情報抽出</li>
+              <li>スクショ前にマスキング</li>
+            </ul>
+          </div>
+          <div class="feature-item">
+            <strong>🚨 漏洩疑惑時</strong>
+            <ul style="text-align:left; font-size:0.85rem; padding-left:18px; margin-bottom:0;">
+              <li>まず revoke（調査は後）</li>
+              <li>ASC Activity / 監査ログ確認</li>
+              <li>不審な API アクセスなし？</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tip-box">
+          <strong>💡 格言：</strong> 「<strong>漏洩したかも</strong>」と思った時点で、もう漏洩したものとして扱う。revoke のコストは数分。悪用された場合のコストは数百時間〜。迷ったら revoke。
         </div>
       </div>
 
