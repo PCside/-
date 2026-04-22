@@ -84,6 +84,7 @@
         <a href="#setup">2. 環境構築</a>
         <a href="#momemo">9. momemo 開発記録</a>
         <a href="#security">10. セキュリティ・鍵管理</a>
+        <a href="#automation">11. AI駆動自動化フロー</a>
         <a href="#xcode">3. Xcode設定</a>
         <a href="#appstore">4. App Store Connect</a>
         <a href="#revenuecat">5. RevenueCat（課金）</a>
@@ -1253,6 +1254,382 @@ git push --force-with-lease --all</pre>
 
         <div class="tip-box">
           <strong>💡 格言：</strong> 「<strong>漏洩したかも</strong>」と思った時点で、もう漏洩したものとして扱う。revoke のコストは数分。悪用された場合のコストは数百時間〜。迷ったら revoke。
+        </div>
+      </div>
+
+      <!-- 11. AI駆動自動化フロー -->
+      <div class="section section-alt" id="automation">
+        <div class="container">
+          <h2>11. AI駆動アプリ開発の自動化フロー</h2>
+          <p>アイデア考察から App Store 審査提出まで、AI アシスタント（Claude Code / Claude Design）+ MCP サーバー群（blitz, Canva, XcodeBuildMCP, App Store Connect）で自動化する実践フロー。TapSchool v1.0 リリース時の試行錯誤から抽出したテンプレート。</p>
+
+          <h3>全体像：誰が何をするか</h3>
+          <div class="mermaid">
+flowchart LR
+    A([💡 アイデア]) --> B([🎨 Claude Design<br/>アイコン・UI・スクショ草案])
+    B --> C([⌨️ Claude Code<br/>実装])
+    C --> D([🧪 XcodeBuildMCP<br/>シミュレータ実行・<br/>UI自動化])
+    D --> E{人間確認}
+    E -->|スクショ撮影<br/>アイコン最終調整| F([🖼️ Canva MCP<br/>スクショ合成])
+    F --> G([⚙️ Pillow<br/>解像度変換])
+    G --> H([📤 ASC API<br/>スクショ upload])
+    H --> I([🔍 blitz<br/>メタデータ検証])
+    I --> J{人間最終確認}
+    J -->|OK| K([🚀 審査提出])
+    J -->|NG| C
+
+    style A fill:#5856D6,color:#fff
+    style B fill:#007AFF,color:#fff
+    style C fill:#007AFF,color:#fff
+    style D fill:#007AFF,color:#fff
+    style E fill:#FF9500,color:#fff
+    style F fill:#007AFF,color:#fff
+    style G fill:#007AFF,color:#fff
+    style H fill:#007AFF,color:#fff
+    style I fill:#007AFF,color:#fff
+    style J fill:#FF9500,color:#fff
+    style K fill:#34C759,color:#fff
+          </div>
+
+          <h3>人間 vs AI の責任分担</h3>
+          <table>
+            <tr>
+              <th>工程</th>
+              <th>担当</th>
+              <th>理由</th>
+            </tr>
+            <tr>
+              <td>アイデア考察・要件定義</td>
+              <td>👤 人間主導 / 🤖 壁打ち</td>
+              <td>価値判断は人間。AI はブレスト相手</td>
+            </tr>
+            <tr>
+              <td>アプリアイコン最終決定</td>
+              <td>👤 <strong>人間</strong></td>
+              <td>ブランド表象。感性・好みの判断</td>
+            </tr>
+            <tr>
+              <td>生スクショ撮影（シミュレータ上で操作）</td>
+              <td>👤 <strong>人間</strong></td>
+              <td>見せたい瞬間の選定。UI 自動化でも可だが手動が確実</td>
+            </tr>
+            <tr>
+              <td>申請内容の最終確認</td>
+              <td>👤 <strong>人間</strong></td>
+              <td>リジェクトリスク・説明責任。法的最終レビュー</td>
+            </tr>
+            <tr>
+              <td>コーディング・リファクタ・テスト</td>
+              <td>🤖 Claude Code</td>
+              <td>生産性が桁違い</td>
+            </tr>
+            <tr>
+              <td>アセット下書き（アイコン草案・UI カンプ）</td>
+              <td>🤖 Claude Design</td>
+              <td>反復速度が段違い。人間は選ぶだけ</td>
+            </tr>
+            <tr>
+              <td>スクショへのテキスト合成・装飾</td>
+              <td>🤖 Canva MCP</td>
+              <td>デザインテンプレ再利用が効く</td>
+            </tr>
+            <tr>
+              <td>解像度変換・パディング</td>
+              <td>🤖 Pillow スクリプト</td>
+              <td>決定的処理。人手は不要</td>
+            </tr>
+            <tr>
+              <td>ASC へのメタデータ・スクショ投入</td>
+              <td>🤖 ASC API 直叩き or MCP</td>
+              <td>GUI 操作は全部 API で代替可</td>
+            </tr>
+            <tr>
+              <td>設定抜け漏れチェック</td>
+              <td>🤖 blitz MCP</td>
+              <td>チェックリスト系は機械に任せる</td>
+            </tr>
+          </table>
+
+          <h3>Phase 1：Claude Design でアセット先行準備</h3>
+          <div class="tip-box">
+            <strong>💡 ポイント：</strong> UI とアセットを先に固めてから実装に入ると、後工程での手戻りが激減する。TapSchool では先にアイコン・スクショ構成・画面レイアウトを Claude Design で固めてから Swift 実装に入った。
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">1</span>
+              <div>
+                <strong>アイコン草案を 5〜10 パターン生成</strong>
+                <p class="mb-0 mt-1">Claude Design / Canva MCP で「アプリの核となる動詞・名詞」を指定して複数案生成。丸型・角丸・グラデ有無などバリエーションを用意。人間はこの中から選ぶだけ。</p>
+              </div>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">2</span>
+              <div>
+                <strong>主要画面の UI カンプ</strong>
+                <p class="mb-0 mt-1">ホーム・設定・メイン機能画面のカンプを Claude Design で起こす。SwiftUI での実装指示書として使える。カラーパレットをここで固定すると以降ブレない。</p>
+              </div>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">3</span>
+              <div>
+                <strong>App Store スクショの「枠」を先に作る</strong>
+                <p class="mb-0 mt-1">キャッチコピー + 背景 + デバイスフレームの Canva テンプレを 5〜6 枚分用意。中身のアプリ画面は後で差し込むだけの状態にしておく。</p>
+              </div>
+            </div>
+          </div>
+
+          <h3>Phase 2：Claude Code による実装</h3>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">1</span>
+              <div>
+                <strong>プロジェクト雛形を生成</strong>
+                <p class="mb-0 mt-1">XcodeBuildMCP の <code>scaffold_ios_project</code> で SwiftUI プロジェクトを新規作成。Bundle ID・Team・Deployment Target を指定すると Xcode が開ける状態で出てくる。</p>
+              </div>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">2</span>
+              <div>
+                <strong>Phase 1 のカンプを実装指示として渡す</strong>
+                <p class="mb-0 mt-1">「このカンプ通りに SwiftUI で」で済む。配色・余白・フォントサイズを聞いてくるようなら、Phase 1 の時点で確定し切れていないサイン。</p>
+              </div>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">3</span>
+              <div>
+                <strong>PrivacyInfo.xcprivacy を最初に入れる</strong>
+                <p class="mb-0 mt-1">データ収集しないアプリでも「収集していない」ことを宣言する必要がある。UserDefaults を使うなら NSPrivacyAccessedAPIType <code>CA92.1</code> 理由を記載。</p>
+                <pre class="mt-2">&lt;key&gt;NSPrivacyTracking&lt;/key&gt;&lt;false/&gt;
+&lt;key&gt;NSPrivacyCollectedDataTypes&lt;/key&gt;&lt;array/&gt;
+&lt;key&gt;NSPrivacyAccessedAPITypes&lt;/key&gt;
+&lt;array&gt;
+  &lt;dict&gt;
+    &lt;key&gt;NSPrivacyAccessedAPIType&lt;/key&gt;
+    &lt;string&gt;NSPrivacyAccessedAPICategoryUserDefaults&lt;/string&gt;
+    &lt;key&gt;NSPrivacyAccessedAPITypeReasons&lt;/key&gt;
+    &lt;array&gt;&lt;string&gt;CA92.1&lt;/string&gt;&lt;/array&gt;
+  &lt;/dict&gt;
+&lt;/array&gt;</pre>
+              </div>
+            </div>
+          </div>
+
+          <h3>Phase 3：XcodeBuildMCP でテスト・スクショ撮影</h3>
+          <div class="tip-box">
+            <strong>⚠️ 事前設定：</strong> UI 自動化（tap / swipe / snapshot_ui）はデフォルト無効。<code>XCODEBUILDMCP_ENABLED_WORKFLOWS</code> 環境変数に <code>ui-automation</code> を追加して有効化する（<a href="https://github.com/getsentry/XcodeBuildMCP/blob/main/docs/CONFIGURATION.md" target="_blank">公式 Configuration</a>）。
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">1</span>
+              <div>
+                <strong>セッションデフォルトを設定</strong>
+                <p class="mb-0 mt-1">毎回 project / scheme / simulator を指定するのは冗長。<code>session_set_defaults</code> で一度設定しておくと以降 <code>build_run_sim</code> が引数ほぼ空で動く。</p>
+              </div>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">2</span>
+              <div>
+                <strong>シミュレータで golden path を実行</strong>
+                <p class="mb-0 mt-1"><code>build_run_sim</code> → <code>snapshot_ui</code> で画面ツリー取得 → <code>tap</code>/<code>type_text</code> で操作 → <code>screenshot</code> で記録。</p>
+                <p class="mb-0 mt-1">ただし <strong>App Store 用の生スクショだけは人間が撮るのが無難</strong>。UI 自動化で撮るとアニメーション中の微妙なフレームを拾うなどコントロールしづらい。</p>
+              </div>
+            </div>
+          </div>
+
+          <h3>Phase 4：Canva + Pillow でスクショ仕上げ</h3>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">1</span>
+              <div>
+                <strong>生スクショを Canva テンプレに流し込む</strong>
+                <p class="mb-0 mt-1">Phase 1 で用意した 5〜6 枚のテンプレに、人間が撮った生スクショを差し込み、Canva MCP <code>export-design</code> で PNG 書き出し。</p>
+              </div>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">2</span>
+              <div>
+                <strong>ASC 要求解像度にリサイズ（Pillow）</strong>
+                <p class="mb-0 mt-1">iPhone 6.9 inch 用は <strong>1320×2868</strong>（<code>APP_IPHONE_67</code> display type が受け付ける最大サイズ）。アスペクト比が合わなければ背景色でパディング。</p>
+                <pre class="mt-2">from PIL import Image
+from pathlib import Path
+SRC = Path("./AppStore")
+TW, TH = 1320, 2868
+for i in range(1, 7):
+    img = Image.open(SRC / f"promo_{i}.png").convert("RGB")
+    scale = TW / img.size[0]
+    new_h = int(round(img.size[1] * scale))
+    scaled = img.resize((TW, new_h), Image.LANCZOS)
+    bg = img.getpixel((5, 5))  # 左上の背景色で塗る
+    canvas = Image.new("RGB", (TW, TH), bg)
+    canvas.paste(scaled, (0, (TH - new_h) // 2))
+    canvas.save(SRC / f"promo_{i}_1320x2868.png", "PNG")</pre>
+              </div>
+            </div>
+          </div>
+
+          <h3>Phase 5：ASC API でメタデータ・スクショ自動投入</h3>
+          <div class="tip-box">
+            <strong>💡 ポイント：</strong> ASC MCP は一部の GET_COLLECTION を禁じているため、スクショ upload のような複合操作は直接 REST API を叩く方が速い。JWT（ES256）を自作すれば認証は簡単。
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">1</span>
+              <div>
+                <strong>JWT 発行（ES256）</strong>
+                <pre class="mt-2">import jwt, time, json, pathlib
+creds = json.loads(pathlib.Path("~/.blitz/asc-credentials.json").expanduser().read_text())
+token = jwt.encode(
+    {"iss": creds["issuerId"], "iat": int(time.time()),
+     "exp": int(time.time())+1200, "aud": "appstoreconnect-v1"},
+    creds["privateKey"], algorithm="ES256",
+    headers={"kid": creds["keyId"], "typ": "JWT"},
+)</pre>
+              </div>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">2</span>
+              <div>
+                <strong>スクショ upload は 3-step</strong>
+                <p class="mb-0 mt-1">（a）<code>POST /v1/appScreenshots</code> で予約 → uploadOperations を受け取る。（b）各 op の URL に binary を <code>PUT</code>。（c）<code>PATCH</code> で <code>uploaded=true</code> + <code>sourceFileChecksum</code>（MD5）を送信。</p>
+                <p class="mb-0 mt-1">ハマり所：<code>APP_IPHONE_69</code> という display type は存在しない。iPhone 6.9" 用でも <code>APP_IPHONE_67</code> を使い、1320×2868 の PNG を投入する。</p>
+              </div>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">3</span>
+              <div>
+                <strong>冪等性：既存 set を再利用 or クリア</strong>
+                <p class="mb-0 mt-1">同じ display type の set を重複作成しようとすると 409。既存を探して再利用、その中の screenshot は削除してから再投入する。</p>
+              </div>
+            </div>
+          </div>
+
+          <h3>Phase 6：blitz で検証 → 提出</h3>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">1</span>
+              <div>
+                <strong>メタデータ抜け漏れチェック</strong>
+                <p class="mb-0 mt-1">blitz（ASC MCP を束ねる橋渡し）で「What's New」「アプリ説明」「キーワード」「サポート URL」「プライバシーポリシー URL」「年齢制限」「カテゴリ」「価格」「Build 添付」などをまとめて確認。抜けがあれば埋める。</p>
+              </div>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">2</span>
+              <div>
+                <strong>プライバシー栄養ラベルは ASC Web で手動</strong>
+                <p class="mb-0 mt-1">この項目は API が公開されていない。初回のみ人間が Web UI で設定。データ収集なしのアプリなら「Data Not Collected」を選ぶだけで済む。</p>
+              </div>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">3</span>
+              <div>
+                <strong>Archive は Xcode（or xcodebuild）で</strong>
+                <p class="mb-0 mt-1">Xcode → Product → Archive。CI から流したいなら <code>xcodebuild archive -exportArchive</code> + API Key で Transporter 経由アップロード。TapSchool では手動 Archive を採用（年に数回しか回さないので投資効果が薄い）。</p>
+              </div>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="d-flex align-items-start">
+              <span class="step-number">4</span>
+              <div>
+                <strong>人間最終レビュー → Submit for Review</strong>
+                <p class="mb-0 mt-1">ASC Web UI で表示を一通り眺め、スクショ・説明文・価格・審査向けメモに違和感がないことを確認して提出。</p>
+              </div>
+            </div>
+          </div>
+
+          <h3>各フェーズの道具立てまとめ</h3>
+          <table>
+            <tr>
+              <th>Phase</th>
+              <th>主要ツール</th>
+              <th>MCP</th>
+              <th>備考</th>
+            </tr>
+            <tr>
+              <td>1. アセット先行</td>
+              <td>Claude Design, Canva</td>
+              <td>claude_ai_Canva</td>
+              <td>アイコン・UI カンプ・スクショ枠</td>
+            </tr>
+            <tr>
+              <td>2. 実装</td>
+              <td>Claude Code</td>
+              <td>xcodebuildmcp</td>
+              <td>PrivacyInfo.xcprivacy を忘れずに</td>
+            </tr>
+            <tr>
+              <td>3. テスト</td>
+              <td>XcodeBuildMCP</td>
+              <td>xcodebuildmcp（ui-automation）</td>
+              <td>生スクショだけは人間が撮る</td>
+            </tr>
+            <tr>
+              <td>4. スクショ仕上げ</td>
+              <td>Canva, Pillow</td>
+              <td>claude_ai_Canva</td>
+              <td>1320×2868 に揃える</td>
+            </tr>
+            <tr>
+              <td>5. ASC 投入</td>
+              <td>ASC REST API, JWT</td>
+              <td>app-store-connect</td>
+              <td>MCP 不可の操作は API 直叩き</td>
+            </tr>
+            <tr>
+              <td>6. 検証・提出</td>
+              <td>blitz, ASC Web</td>
+              <td>app-store-connect</td>
+              <td>栄養ラベル・Archive は人間</td>
+            </tr>
+          </table>
+
+          <h3>このフローが依拠する前提（セクション 10 と合わせて読む）</h3>
+          <div class="feature-grid">
+            <div class="feature-item">
+              <div class="icon">🔐</div>
+              <strong>鍵管理は 600 + ~/.blitz/</strong>
+              <p style="font-size:0.85rem;color:#888;">セクション10のルール厳守</p>
+            </div>
+            <div class="feature-item">
+              <div class="icon">🚫</div>
+              <strong>AI に <code>cat secret</code> させない</strong>
+              <p style="font-size:0.85rem;color:#888;">ログ永続化の罠</p>
+            </div>
+            <div class="feature-item">
+              <div class="icon">📂</div>
+              <strong>PEM は <code>privateKey</code> として埋める</strong>
+              <p style="font-size:0.85rem;color:#888;">blitz 形式の credential JSON</p>
+            </div>
+            <div class="feature-item">
+              <div class="icon">🔄</div>
+              <strong>鍵ローテ後は issuerId 保持</strong>
+              <p style="font-size:0.85rem;color:#888;">keyId と privateKey のみ差し替え</p>
+            </div>
+          </div>
+
+          <div class="tip-box">
+            <strong>💡 結論：</strong> 「人間が判断すべきこと（アイデア・ブランド表象・最終責任）」と「機械がやるべきこと（反復・変換・API 叩き）」の境界を明確にすると、1 アプリのリリースが劇的に楽になる。TapSchool v1.0 では Phase 2-5 の大部分を Claude Code + blitz に任せ、人間はアイデア・アイコン選定・スクショ撮影・最終確認だけに集中できた。
+          </div>
         </div>
       </div>
 
